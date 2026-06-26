@@ -1,0 +1,16 @@
+{
+  "editor.defaultFormatter": "oxc.oxc-vscode",
+  "editor.formatOnSave": true,
+  "files.watcherExclude": {
+    "**/routeTree.gen.ts": true,
+    "bun.lock": true
+  },
+  "search.exclude": {
+    "**/routeTree.gen.ts": true,
+    "bun.lock": true
+  },
+  "files.readonlyInclude": {
+    "**/routeTree.gen.ts": true,
+    "bun.lock": true
+  }
+}
