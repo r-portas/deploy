@@ -5,6 +5,7 @@ import type { ReactNode } from "react";
 import { AppLayout } from "@/components/app-layout";
 
 import "@mantine/core/styles.css";
+import "@mantine/charts/styles.css";
 import theme from "@/lib/theme";
 
 export const Route = createRootRoute({

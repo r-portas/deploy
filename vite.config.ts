@@ -6,8 +6,11 @@ export default defineConfig({
   server: {
     port: 3000,
   },
+  optimizeDeps: {
+    exclude: ["bun"],
+  },
   resolve: {
     tsconfigPaths: true,
   },
-  plugins: [tanstackStart(), react()],
+  plugins: [tanstackStart({}), react()],
 });

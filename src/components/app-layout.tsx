@@ -3,10 +3,7 @@ import { AirTrafficControlIcon } from "@phosphor-icons/react";
 import { Link, useMatchRoute, type LinkProps } from "@tanstack/react-router";
 import type { ReactNode } from "react";
 
-const NAV_ITEMS: { label: string; to: LinkProps["to"] }[] = [
-  { label: "Home", to: "/" },
-  { label: "About", to: "/about" },
-];
+const NAV_ITEMS: { label: string; to: LinkProps["to"] }[] = [{ label: "Home", to: "/" }];
 
 export function AppLayout({ children }: Readonly<{ children: ReactNode }>) {
   const matchRoute = useMatchRoute();
@@ -19,7 +16,7 @@ export function AppLayout({ children }: Readonly<{ children: ReactNode }>) {
             <ThemeIcon>
               <AirTrafficControlIcon />
             </ThemeIcon>
-            <Title order={5}>TSS Mantine</Title>
+            <Title order={5}>Deploy</Title>
           </Group>
           <Stack gap={4}>
             {NAV_ITEMS.map((item) => (
