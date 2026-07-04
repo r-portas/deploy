@@ -14,9 +14,28 @@ async function ensureAppsDirExists() {
   }
 }
 
-export const listReposFn = createServerFn().handler(async () => {
+export interface RepoInfo {
+  name: string;
+  remoteUrl: string;
+  sha: string;
+}
+
+export const listReposFn = createServerFn().handler(async (): Promise<RepoInfo[]> => {
   await ensureAppsDirExists();
-  return await readdir(serverEnv.APPS_DIR);
+  const repos = await readdir(serverEnv.APPS_DIR);
+  return Promise.all(
+    repos.map(async (repo) => {
+      const repoPath = join(serverEnv.APPS_DIR, repo);
+      const remoteUrl = await $`git remote get-url origin`.cwd(repoPath).quiet().text();
+      const sha = await $`git rev-parse --short HEAD`.cwd(repoPath).quiet().text();
+
+      return {
+        name: repo,
+        remoteUrl,
+        sha,
+      };
+    }),
+  );
 });
 
 export const addRepoFn = createServerFn()

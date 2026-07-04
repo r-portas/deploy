@@ -1,12 +1,13 @@
 import {
   ActionIcon,
+  Anchor,
+  Badge,
   Box,
   Card,
   CloseButton,
   Code,
   Group,
-  ScrollArea,
-  Stack,
+  Table,
   Text,
   TextInput,
   Title,
@@ -18,7 +19,7 @@ import { useRouter } from "@tanstack/react-router";
 import { useState } from "react";
 import { z } from "zod";
 
-import { addRepoFn, deleteRepoFn } from "@/lib/repos";
+import { addRepoFn, deleteRepoFn, RepoInfo } from "@/lib/repos";
 
 const addRepoSchema = z.object({
   repoUrl: z.url({ message: "Enter a valid repo URL" }),
@@ -26,7 +27,7 @@ const addRepoSchema = z.object({
 
 interface RepoListCardProps {
   /** Directory names of repos already cloned into the apps dir. */
-  repos: string[];
+  repos: RepoInfo[];
 }
 
 /**
@@ -74,36 +75,70 @@ export default function RepoListCard({ repos }: RepoListCardProps) {
         <Title order={4}>Repos</Title>
       </Card.Section>
 
-      <Card.Section withBorder inheritPadding py="sm">
-        <ScrollArea.Autosize mah={280}>
-          {repos.length === 0 ? (
-            <Text size="sm" c="dimmed">
-              No repos yet. Add one below.
-            </Text>
-          ) : (
-            <Stack gap={4}>
+      <Card.Section withBorder>
+        {repos.length === 0 ? (
+          <Text size="sm" c="dimmed">
+            No repos yet. Add one below.
+          </Text>
+        ) : (
+          <Table verticalSpacing="xs">
+            <Table.Thead>
+              <Table.Tr>
+                <Table.Th>Name</Table.Th>
+                <Table.Th>Remote</Table.Th>
+                <Table.Th>SHA</Table.Th>
+                <Table.Th w={40} />
+              </Table.Tr>
+            </Table.Thead>
+            <Table.Tbody>
               {repos.map((repo) => (
-                <Group key={repo} gap="xs" wrap="nowrap" justify="space-between">
-                  <Group gap="xs" wrap="nowrap">
-                    <FolderIcon weight="bold" />
-                    <Text size="sm">{repo}</Text>
-                  </Group>
-                  <Tooltip label="Delete repo">
-                    <ActionIcon
-                      variant="subtle"
-                      color="red"
-                      size="sm"
-                      onClick={() => handleDeleteRepo(repo)}
-                      loading={deletingRepo === repo}
-                    >
-                      <TrashIcon weight="bold" />
-                    </ActionIcon>
-                  </Tooltip>
-                </Group>
+                <Table.Tr key={repo.name}>
+                  <Table.Td>
+                    <Group gap="xs" wrap="nowrap">
+                      <FolderIcon weight="bold" />
+                      <Text size="sm" fw={500}>
+                        {repo.name}
+                      </Text>
+                    </Group>
+                  </Table.Td>
+                  <Table.Td maw={170}>
+                    <Tooltip label={repo.remoteUrl.trim()} openDelay={300}>
+                      <Anchor
+                        href={repo.remoteUrl.trim()}
+                        target="_blank"
+                        rel="noreferrer"
+                        size="sm"
+                        c="dimmed"
+                        truncate
+                        display="block"
+                      >
+                        {repo.remoteUrl.trim()}
+                      </Anchor>
+                    </Tooltip>
+                  </Table.Td>
+                  <Table.Td>
+                    <Badge variant="light" color="gray" radius="sm" tt="none" ff="monospace">
+                      {repo.sha.trim()}
+                    </Badge>
+                  </Table.Td>
+                  <Table.Td>
+                    <Tooltip label="Delete repo">
+                      <ActionIcon
+                        variant="subtle"
+                        color="red"
+                        size="sm"
+                        onClick={() => handleDeleteRepo(repo.name)}
+                        loading={deletingRepo === repo.name}
+                      >
+                        <TrashIcon weight="bold" />
+                      </ActionIcon>
+                    </Tooltip>
+                  </Table.Td>
+                </Table.Tr>
               ))}
-            </Stack>
-          )}
-        </ScrollArea.Autosize>
+            </Table.Tbody>
+          </Table>
+        )}
       </Card.Section>
 
       <Card.Section withBorder inheritPadding py="sm">
