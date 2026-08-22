@@ -56,4 +56,19 @@ const dockerContainerSchema = z
     status: container.Status,
   }));
 
+export type DockerContainer = z.infer<typeof dockerContainerSchema>;
+
 export const dockerPsSchema = z.array(dockerContainerSchema);
+
+/**
+ * Parses `docker ps --format json` output, which is newline-delimited JSON
+ * (one object per line), not a JSON array.
+ */
+export function parseDockerPsOutput(output: string): DockerContainer[] {
+  const rawContainers = output
+    .split("\n")
+    .filter((line) => line.trim() !== "")
+    .map((line) => JSON.parse(line));
+
+  return dockerPsSchema.parse(rawContainers);
+}

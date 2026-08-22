@@ -1,6 +1,9 @@
 import fs from "fs/promises";
 import path from "path";
 
+import { $ } from "bun";
+
+import { type DockerContainer, parseDockerPsOutput } from "./apps.schema";
 import { REPO_DIR } from "./repos.server";
 
 /**
@@ -26,6 +29,19 @@ export type ComposeApp = {
    * The name of the app
    */
   name: string;
+};
+
+export type App = ComposeApp & {
+  /**
+   * Whether any container for this app's compose project is currently
+   * running.
+   */
+  running: boolean;
+
+  /**
+   * The containers `docker ps` currently reports for this app.
+   */
+  containers: DockerContainer[];
 };
 
 /**
@@ -54,15 +70,60 @@ async function findComposeFiles(dir: string): Promise<string[]> {
   return files;
 }
 
+const COMPOSE_CONFIG_FILES_LABEL = "com.docker.compose.project.config_files";
+
+/**
+ * Reads the compose file path(s) a container was created from, via Docker
+ * Compose's `config_files` label (comma-separated when multiple `-f` flags
+ * were used).
+ */
+export function getComposeConfigFiles(container: DockerContainer): string[] {
+  const label = container.labels[COMPOSE_CONFIG_FILES_LABEL];
+  if (!label) return [];
+
+  return label.split(",").map((configFile) => path.resolve(configFile));
+}
+
+/**
+ * Finds the containers belonging to an app's compose file.
+ *
+ * @remarks
+ * Matches on the `config_files` label rather than the compose project name
+ * or working directory, since it's the only one guaranteed to identify the
+ * exact compose file(s) Docker Compose used.
+ */
+export function matchContainersToApp(
+  app: ComposeApp,
+  containers: DockerContainer[],
+): DockerContainer[] {
+  const appPath = path.resolve(app.path);
+
+  return containers.filter((container) => getComposeConfigFiles(container).includes(appPath));
+}
+
+async function getRunningContainers(): Promise<DockerContainer[]> {
+  const output = await $`docker ps --format json`.text();
+  return parseDockerPsOutput(output);
+}
+
 /**
  * Finds all Docker Compose apps across the cloned repos, using each compose
- * file's containing directory name as the app name.
+ * file's containing directory name as the app name, merged with each app's
+ * live container status from `docker ps`.
  */
-export async function listApps(): Promise<ComposeApp[]> {
-  const composeFiles = await findComposeFiles(REPO_DIR);
+export async function listApps(): Promise<App[]> {
+  const [composeFiles, containers] = await Promise.all([
+    findComposeFiles(REPO_DIR),
+    getRunningContainers(),
+  ]);
 
-  return composeFiles.map((filePath) => ({
-    name: path.basename(path.dirname(filePath)),
-    path: filePath,
-  }));
+  return composeFiles.map((filePath) => {
+    const app: ComposeApp = {
+      name: path.basename(path.dirname(filePath)),
+      path: filePath,
+    };
+    const matched = matchContainersToApp(app, containers);
+
+    return { ...app, running: matched.length > 0, containers: matched };
+  });
 }

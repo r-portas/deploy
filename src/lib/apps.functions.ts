@@ -29,3 +29,10 @@ export const stopAppFn = createServerFn({ method: "POST" })
     const dir = path.dirname(composeFilePath);
     return await $`docker compose down`.cwd(dir).text();
   });
+
+export const restartAppFn = createServerFn({ method: "POST" })
+  .validator(z.string())
+  .handler(async ({ data: composeFilePath }) => {
+    const dir = path.dirname(composeFilePath);
+    return await $`docker compose restart`.cwd(dir).text();
+  });
