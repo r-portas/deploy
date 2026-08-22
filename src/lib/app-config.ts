@@ -1,11 +1,11 @@
-import { Blocks, Home } from "lucide-react";
+import { Blocks, Boxes, Home } from "lucide-react";
 
 import type { SidebarItem } from "@/components/ui/sidebar";
 
 /**
  * The app name, used for the page title and meta tags.
  */
-export const APP_NAME = "App Template";
+export const APP_NAME = "Deploy";
 
 /**
  * The app icon shown at the top of the sidebar.
@@ -17,4 +17,5 @@ export const APP_ICON = Blocks;
  */
 export const SIDEBAR_ITEMS: SidebarItem[] = [
   { icon: Home, title: "Home", to: "/", activeOptions: { exact: true } },
+  { icon: Boxes, title: "Apps", to: "/apps" },
 ];
