@@ -16,6 +16,8 @@ Before editing files for a substantial task:
 ## User Interface
 
 - This project uses Mantine for UI components, see https://mantine.dev/llms.txt for documentation.
+- Prefer Mantine components over raw HTML elements
+- Prefer leveraging Mantine's built-in styling over custom CSS
 
 ## Workflow
 

@@ -3,7 +3,11 @@ import { AirTrafficControlIcon } from "@phosphor-icons/react";
 import { Link, useMatchRoute, type LinkProps } from "@tanstack/react-router";
 import type { ReactNode } from "react";
 
-const NAV_ITEMS: { label: string; to: LinkProps["to"] }[] = [{ label: "Home", to: "/" }];
+const NAV_ITEMS: { label: string; to: LinkProps["to"] }[] = [
+  { label: "Home", to: "/" },
+  { label: "Apps", to: "/apps" },
+  { label: "Repos", to: "/repos" },
+];
 
 export function AppLayout({ children }: Readonly<{ children: ReactNode }>) {
   const matchRoute = useMatchRoute();
