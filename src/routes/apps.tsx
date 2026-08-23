@@ -1,6 +1,6 @@
 import { createFileRoute, useRouter } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { Play, RotateCw, Square } from "lucide-react";
+import { ExternalLink, Play, RotateCw, Square } from "lucide-react";
 import * as React from "react";
 
 import { Badge } from "@/components/ui/badge";
@@ -16,8 +16,8 @@ import {
 } from "@/components/ui/table";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { listAppsFn, restartAppFn, startAppFn, stopAppFn } from "@/lib/apps.functions";
-import type { DockerContainer } from "@/lib/apps.schema";
-import type { App } from "@/lib/apps.server";
+import type { DockerContainer } from "@/lib/apps.schemas";
+import type { App } from "@/lib/apps.types";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/apps")({
@@ -145,6 +145,52 @@ function AppContainers({ containers }: { containers: DockerContainer[] }) {
   );
 }
 
+/**
+ * Builds the URL for a port exposed on the host this app is served from.
+ *
+ * @remarks
+ * Uses the browser's own protocol/hostname rather than hardcoding
+ * `localhost`, since the deployed app is served from the same host that
+ * runs the Docker containers, but users may reach it via a LAN IP or
+ * domain instead of `localhost`. Falls back to `localhost` during SSR,
+ * where `window` isn't available.
+ */
+function portUrl(port: string): string {
+  if (typeof window === "undefined") return `http://localhost:${port}`;
+  return `${window.location.protocol}//${window.location.hostname}:${port}`;
+}
+
+function AppPorts({ ports }: { ports: string[] }) {
+  if (ports.length === 0) {
+    return <span className="text-sm text-muted-foreground">—</span>;
+  }
+
+  return (
+    <div className="flex flex-wrap gap-1">
+      {ports.map((port) => {
+        const url = portUrl(port);
+
+        return (
+          <Tooltip key={port}>
+            <TooltipTrigger
+              render={
+                <Badge
+                  variant="outline"
+                  render={<a href={url} target="_blank" rel="noopener noreferrer" />}
+                >
+                  {port}
+                  <ExternalLink data-icon="inline-end" />
+                </Badge>
+              }
+            />
+            <TooltipContent>Open {url}</TooltipContent>
+          </Tooltip>
+        );
+      })}
+    </div>
+  );
+}
+
 function RouteComponent() {
   const { apps } = Route.useLoaderData();
 
@@ -163,13 +209,14 @@ function RouteComponent() {
                 <TableHead>Path</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Containers</TableHead>
+                <TableHead>Ports</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {apps.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={5} className="text-center text-muted-foreground">
+                  <TableCell colSpan={6} className="text-center text-muted-foreground">
                     No apps found. Clone a repo with a Docker Compose file to get started.
                   </TableCell>
                 </TableRow>
@@ -183,6 +230,9 @@ function RouteComponent() {
                     </TableCell>
                     <TableCell>
                       <AppContainers containers={app.containers} />
+                    </TableCell>
+                    <TableCell>
+                      <AppPorts ports={app.ports} />
                     </TableCell>
                     <TableCell className="text-right">
                       <AppActions app={app} />

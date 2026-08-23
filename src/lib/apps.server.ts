@@ -3,7 +3,8 @@ import path from "path";
 
 import { $ } from "bun";
 
-import { type DockerContainer, parseDockerPsOutput } from "./apps.schema";
+import { type DockerContainer, dockerPsSchema } from "./apps.schemas";
+import type { ComposeApp, App } from "./apps.types";
 import { REPO_DIR } from "./repos.server";
 
 /**
@@ -16,33 +17,6 @@ const COMPOSE_FILE_NAMES = [
   "docker-compose.yaml",
   "docker-compose.yml",
 ];
-
-export type ComposeApp = {
-  /**
-   * The path to the app's Docker Compose file
-   * @remarks
-   * This is unique, so suitable to use as a id.
-   */
-  path: string;
-
-  /**
-   * The name of the app
-   */
-  name: string;
-};
-
-export type App = ComposeApp & {
-  /**
-   * Whether any container for this app's compose project is currently
-   * running.
-   */
-  running: boolean;
-
-  /**
-   * The containers `docker ps` currently reports for this app.
-   */
-  containers: DockerContainer[];
-};
 
 /**
  * Recursively walks a directory tree and returns the path of every Docker
@@ -103,7 +77,12 @@ export function matchContainersToApp(
 
 async function getRunningContainers(): Promise<DockerContainer[]> {
   const output = await $`docker ps --format json`.text();
-  return parseDockerPsOutput(output);
+  const rawContainers = output
+    .split("\n")
+    .filter((line) => line.trim() !== "")
+    .map((line) => JSON.parse(line));
+
+  return dockerPsSchema.parse(rawContainers);
 }
 
 /**
@@ -124,6 +103,11 @@ export async function listApps(): Promise<App[]> {
     };
     const matched = matchContainersToApp(app, containers);
 
-    return { ...app, running: matched.length > 0, containers: matched };
+    return {
+      ...app,
+      running: matched.length > 0,
+      containers: matched,
+      ports: matched.map((container) => container.hostPorts).flat(),
+    };
   });
 }

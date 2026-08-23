@@ -1,30 +1,32 @@
 import { describe, expect, test } from "bun:test";
 import path from "path";
 
-import type { DockerContainer } from "./apps.schema";
+import type { DockerContainer } from "./apps.schemas";
 import { getComposeConfigFiles, matchContainersToApp } from "./apps.server";
-import type { ComposeApp } from "./apps.server";
+import type { ComposeApp } from "./apps.types";
 
 /**
  * Builds a minimal transformed `DockerContainer` for use as test fixture
  * input, with just enough fields for the matching logic under test.
  */
-function container(labels: Record<string, string>): DockerContainer {
+function container(overrides: Partial<DockerContainer> = {}): DockerContainer {
   return {
     command: "",
     createdAt: "",
     id: "container-id",
     image: "",
-    labels,
+    labels: {},
     localVolumes: "",
     mounts: "",
     names: "",
     networks: "",
     ports: "",
+    hostPorts: [],
     runningFor: "",
     size: "",
     state: "running",
     status: "",
+    ...overrides,
   };
 }
 
@@ -36,7 +38,9 @@ describe("getComposeConfigFiles", () => {
   test("resolves a single config_files path", () => {
     expect(
       getComposeConfigFiles(
-        container({ "com.docker.compose.project.config_files": "repos/foo/compose.yaml" }),
+        container({
+          labels: { "com.docker.compose.project.config_files": "repos/foo/compose.yaml" },
+        }),
       ),
     ).toEqual([path.resolve("repos/foo/compose.yaml")]);
   });
@@ -45,8 +49,10 @@ describe("getComposeConfigFiles", () => {
     expect(
       getComposeConfigFiles(
         container({
-          "com.docker.compose.project.config_files":
-            "repos/foo/compose.yaml,repos/foo/compose.override.yaml",
+          labels: {
+            "com.docker.compose.project.config_files":
+              "repos/foo/compose.yaml,repos/foo/compose.override.yaml",
+          },
         }),
       ),
     ).toEqual([
@@ -61,7 +67,7 @@ describe("matchContainersToApp", () => {
 
   test("matches a container whose config_files label resolves to the app's path", () => {
     const matching = container({
-      "com.docker.compose.project.config_files": "repos/foo/compose.yaml",
+      labels: { "com.docker.compose.project.config_files": "repos/foo/compose.yaml" },
     });
 
     expect(matchContainersToApp(app, [matching])).toEqual([matching]);
@@ -69,10 +75,10 @@ describe("matchContainersToApp", () => {
 
   test("matches multiple containers sharing the same config_files label", () => {
     const web = container({
-      "com.docker.compose.project.config_files": "repos/foo/compose.yaml",
+      labels: { "com.docker.compose.project.config_files": "repos/foo/compose.yaml" },
     });
     const worker = container({
-      "com.docker.compose.project.config_files": "repos/foo/compose.yaml",
+      labels: { "com.docker.compose.project.config_files": "repos/foo/compose.yaml" },
     });
 
     expect(matchContainersToApp(app, [web, worker])).toEqual([web, worker]);
@@ -80,7 +86,7 @@ describe("matchContainersToApp", () => {
 
   test("does not match a container from an unrelated compose file", () => {
     const unrelated = container({
-      "com.docker.compose.project.config_files": "repos/other/compose.yaml",
+      labels: { "com.docker.compose.project.config_files": "repos/other/compose.yaml" },
     });
 
     expect(matchContainersToApp(app, [unrelated])).toEqual([]);
@@ -92,7 +98,7 @@ describe("matchContainersToApp", () => {
       path: "repos/foo/docker-compose.yaml",
     };
     const usedByCompose = container({
-      "com.docker.compose.project.config_files": "repos/foo/docker-compose.yaml",
+      labels: { "com.docker.compose.project.config_files": "repos/foo/docker-compose.yaml" },
     });
 
     expect(matchContainersToApp(app, [usedByCompose])).toEqual([]);

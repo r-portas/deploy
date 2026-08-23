@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+// #region Parsers
+
 /**
  * Parses Docker's `Labels` field, a comma-separated list of `key=value`
  * pairs, into a plain object.
@@ -14,6 +16,28 @@ export function parseLabels(labels: string): Record<string, string> {
     }),
   );
 }
+
+/**
+ * Parses Docker's `Ports` field into the distinct host ports an app exposes.
+ *
+ * @remarks
+ * IPv4/IPv6 bindings for the same host port appear as separate entries
+ * (e.g. `0.0.0.0:8080->80/tcp, [::]:8080->80/tcp`); these are deduped.
+ * Entries with no host binding (e.g. `80/tcp`, exposed but not published)
+ * are ignored since there's no host port to show.
+ */
+export function parsePorts(ports: string): string[] {
+  const hostPorts = new Set<string>();
+
+  for (const [, hostPort] of ports.matchAll(/:(\d+)->/g)) {
+    // The capture group always matches when the regex matches, so this is defined.
+    hostPorts.add(hostPort!);
+  }
+
+  return [...hostPorts].toSorted((a, b) => Number(a) - Number(b));
+}
+
+// #endregion
 
 /**
  * Schema for a single container entry from `docker ps --format json`.
@@ -50,6 +74,7 @@ const dockerContainerSchema = z
     names: container.Names,
     networks: container.Networks,
     ports: container.Ports,
+    hostPorts: parsePorts(container.Ports),
     runningFor: container.RunningFor,
     size: container.Size,
     state: container.State,
@@ -57,18 +82,4 @@ const dockerContainerSchema = z
   }));
 
 export type DockerContainer = z.infer<typeof dockerContainerSchema>;
-
 export const dockerPsSchema = z.array(dockerContainerSchema);
-
-/**
- * Parses `docker ps --format json` output, which is newline-delimited JSON
- * (one object per line), not a JSON array.
- */
-export function parseDockerPsOutput(output: string): DockerContainer[] {
-  const rawContainers = output
-    .split("\n")
-    .filter((line) => line.trim() !== "")
-    .map((line) => JSON.parse(line));
-
-  return dockerPsSchema.parse(rawContainers);
-}
