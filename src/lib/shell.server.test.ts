@@ -1,9 +1,12 @@
 import { describe, expect, test } from "bun:test";
+
 import { linesFromChunks } from "./shell.server";
+
+const encoder = new TextEncoder();
 
 async function* toChunks(chunks: string[]) {
   for (const chunk of chunks) {
-    yield chunk;
+    yield encoder.encode(chunk);
   }
 }
 
@@ -26,9 +29,7 @@ describe("linesFromChunks", () => {
   });
 
   test("joins a line split across multiple chunks", async () => {
-    const lines = await collect(
-      linesFromChunks(toChunks(["hel", "lo\nwor", "ld"])),
-    );
+    const lines = await collect(linesFromChunks(toChunks(["hel", "lo\nwor", "ld"])));
     expect(lines).toEqual(["hello", "world"]);
   });
 
