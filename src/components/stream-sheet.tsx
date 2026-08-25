@@ -93,7 +93,7 @@ export function StreamSheet<TItem>({
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent>
+      <SheetContent className="sm:max-w-2xl">
         <SheetHeader>
           <div className="flex items-center justify-between gap-2 pr-8">
             <SheetTitle>{title}</SheetTitle>

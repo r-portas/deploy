@@ -1,19 +1,106 @@
 import { useRouter } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { ExternalLink, Play, RotateCw, Square } from "lucide-react";
+import { ExternalLink, Play, RotateCw, ScrollText, Square } from "lucide-react";
 import * as React from "react";
 
+import ActionButton from "@/components/action-button";
 import { StreamSheet } from "@/components/stream-sheet";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { TableCell, TableRow } from "@/components/ui/table";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import useStream from "@/hooks/use-stream";
-import { restartAppFn, startAppFn, stopAppFn } from "@/lib/apps.functions";
+import { logsAppFn, restartAppFn, startAppFn, stopAppFn } from "@/lib/apps.functions";
 import type { DockerContainer } from "@/lib/apps.schemas";
 import type { App } from "@/lib/apps.types";
 import { cn } from "@/lib/utils";
 
+// #region AppLogsAction
+interface AppLogsActionProps {
+  /** The app whose compose logs to follow. */
+  app: App;
+  /** Disables the button while another action is in flight. */
+  disabled: boolean;
+  /** Notifies the parent so sibling actions can share a busy lock. */
+  onBusyChange: (busy: boolean) => void;
+  /** Surfaces a follow-stream failure next to the action buttons. */
+  onError: (message: string | undefined) => void;
+}
+
+/**
+ * Follows an app's compose logs in a sheet, aborting the tail when closed.
+ */
+function AppLogsAction({ app, disabled, onBusyChange, onError }: AppLogsActionProps) {
+  const logsApp = useServerFn(logsAppFn);
+  const stream = useStream(logsApp);
+  const [pending, setPending] = React.useState(false);
+  const [open, setOpen] = React.useState(false);
+  // Logs follow indefinitely, so closing the sheet has to abort the request
+  // to stop it — otherwise the server keeps tailing the process forever.
+  const abortController = React.useRef<AbortController | undefined>(undefined);
+
+  const handleOpen = () => {
+    onError(undefined);
+    setPending(true);
+    onBusyChange(true);
+    setOpen(true);
+
+    // The client's streaming RPC reader doesn't reject or complete its
+    // iterator when the request is aborted mid-stream (it just logs
+    // "Stream processing error" and stops) — so `stream.run(...)` never
+    // settles after the sheet aborts it. Don't await it here; `pending`
+    // is cleared by handleOpenChange() instead, and this only handles
+    // the case where the stream ends/errors on its own.
+    const controller = new AbortController();
+    abortController.current = controller;
+    stream
+      .run({ data: app.path, signal: controller.signal })
+      .catch((err) => {
+        if (controller.signal.aborted) return;
+        onError(err instanceof Error ? err.message : "Failed to load logs");
+      })
+      .finally(() => {
+        // Only clear busy if this is still the active logs run — a stale,
+        // never-settling call from a prior close shouldn't clobber a newer
+        // run's state.
+        if (abortController.current === controller) {
+          setPending(false);
+          onBusyChange(false);
+        }
+      });
+  };
+
+  const handleOpenChange = (next: boolean) => {
+    setOpen(next);
+    if (!next) {
+      abortController.current?.abort();
+      abortController.current = undefined;
+      setPending(false);
+      onBusyChange(false);
+    }
+  };
+
+  return (
+    <>
+      <ActionButton
+        label="View Logs"
+        pendingLabel="Loading logs..."
+        icon={<ScrollText />}
+        pending={pending}
+        disabled={disabled}
+        onClick={handleOpen}
+      />
+      <StreamSheet
+        open={open}
+        onOpenChange={handleOpenChange}
+        title={`${app.name} logs`}
+        stream={stream}
+      />
+    </>
+  );
+}
+// #endregion
+
+// #region AppActions
 type AppAction = "start" | "stop" | "restart";
 
 const ACTION_LABEL: Record<AppAction, string> = {
@@ -34,6 +121,12 @@ const ACTION_ICON: Record<AppAction, React.ReactNode> = {
   restart: <RotateCw />,
 };
 
+const ACTION_SHEET_TITLE: Record<AppAction, (appName: string) => string> = {
+  start: (appName) => `Start ${appName}`,
+  stop: (appName) => `Stop ${appName}`,
+  restart: (appName) => `Restart ${appName}`,
+};
+
 function AppActions({ app }: { app: App }) {
   const router = useRouter();
   const startApp = useServerFn(startAppFn);
@@ -45,6 +138,7 @@ function AppActions({ app }: { app: App }) {
     restart: useStream(restartApp),
   };
 
+  const [busy, setBusy] = React.useState(false);
   const [pending, setPending] = React.useState<AppAction | undefined>(undefined);
   const [error, setError] = React.useState<string | undefined>(undefined);
   const [sheetAction, setSheetAction] = React.useState<AppAction | undefined>(undefined);
@@ -53,8 +147,10 @@ function AppActions({ app }: { app: App }) {
   const run = async (action: AppAction) => {
     setError(undefined);
     setPending(action);
+    setBusy(true);
     setSheetAction(action);
     setSheetOpen(true);
+
     try {
       await streams[action].run({ data: app.path });
       // Re-run the loader so the change is reflected without a full reload.
@@ -63,48 +159,59 @@ function AppActions({ app }: { app: App }) {
       setError(err instanceof Error ? err.message : `Failed to ${action} app`);
     } finally {
       setPending(undefined);
+      setBusy(false);
     }
   };
-
-  const actionButton = (action: AppAction) => (
-    <Tooltip key={action}>
-      <TooltipTrigger
-        render={
-          <Button
-            variant="outline"
-            size="icon-sm"
-            aria-label={ACTION_LABEL[action]}
-            disabled={pending !== undefined}
-            onClick={() => run(action)}
-          >
-            {ACTION_ICON[action]}
-          </Button>
-        }
-      />
-      <TooltipContent>
-        {pending === action ? ACTION_PENDING_LABEL[action] : ACTION_LABEL[action]}
-      </TooltipContent>
-    </Tooltip>
-  );
 
   return (
     <div className="flex flex-col items-end gap-1">
       <div className="flex gap-1.5">
-        {app.running ? [actionButton("restart"), actionButton("stop")] : actionButton("start")}
+        {app.running ? (
+          <>
+            <ActionButton
+              label={ACTION_LABEL.restart}
+              pendingLabel={ACTION_PENDING_LABEL.restart}
+              icon={ACTION_ICON.restart}
+              pending={pending === "restart"}
+              disabled={busy}
+              onClick={() => run("restart")}
+            />
+            <ActionButton
+              label={ACTION_LABEL.stop}
+              pendingLabel={ACTION_PENDING_LABEL.stop}
+              icon={ACTION_ICON.stop}
+              pending={pending === "stop"}
+              disabled={busy}
+              onClick={() => run("stop")}
+            />
+          </>
+        ) : (
+          <ActionButton
+            label={ACTION_LABEL.start}
+            pendingLabel={ACTION_PENDING_LABEL.start}
+            icon={ACTION_ICON.start}
+            pending={pending === "start"}
+            disabled={busy}
+            onClick={() => run("start")}
+          />
+        )}
+        <AppLogsAction app={app} disabled={busy} onBusyChange={setBusy} onError={setError} />
       </div>
       {error && <p className="text-xs text-destructive">{error}</p>}
       {sheetAction && (
         <StreamSheet
           open={sheetOpen}
           onOpenChange={setSheetOpen}
-          title={`${ACTION_LABEL[sheetAction]} ${app.name}`}
+          title={ACTION_SHEET_TITLE[sheetAction](app.name)}
           stream={streams[sheetAction]}
         />
       )}
     </div>
   );
 }
+// #endregion
 
+// #region AppStatus
 function AppStatus({ running }: { running: boolean }) {
   return (
     <Badge
@@ -123,7 +230,9 @@ function AppStatus({ running }: { running: boolean }) {
     </Badge>
   );
 }
+// #endregion
 
+// #region AppContainers
 function AppContainers({ containers }: { containers: DockerContainer[] }) {
   if (containers.length === 0) {
     return <span className="text-sm text-muted-foreground">—</span>;
@@ -149,7 +258,9 @@ function AppContainers({ containers }: { containers: DockerContainer[] }) {
     </div>
   );
 }
+// #endregion
 
+// #region AppPorts
 /**
  * Builds the URL for a port exposed on the host this app is served from.
  *
@@ -195,7 +306,11 @@ function AppPorts({ ports }: { ports: string[] }) {
     </div>
   );
 }
+// #endregion
 
+/**
+ * A single app row: name, path, status, containers, ports, and actions.
+ */
 export function AppTableRow({ app }: { app: App }) {
   return (
     <TableRow>

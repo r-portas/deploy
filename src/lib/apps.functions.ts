@@ -1,6 +1,7 @@
 import path from "path";
 
 import { createServerFn } from "@tanstack/react-start";
+import { getRequest } from "@tanstack/react-start/server";
 import { z } from "zod";
 
 import { listApps } from "./apps.server";
@@ -51,6 +52,29 @@ export const restartAppFn = createServerFn({ method: "POST" })
   .handler(async function* ({ data: composeFilePath }) {
     const dir = path.dirname(composeFilePath);
     for await (const line of exec("docker compose restart", { cwd: dir })) {
+      yield line;
+    }
+  });
+
+/**
+ * Follows an app's compose stack logs, streaming each new line as it's
+ * produced.
+ *
+ * @remarks
+ * Runs indefinitely (`docker compose logs --follow`) until the client
+ * disconnects — e.g. the caller closes the log view, which aborts the
+ * request's signal and kills the underlying process. Without a client
+ * still reading, this would otherwise leak a running process.
+ */
+export const logsAppFn = createServerFn({ method: "POST" })
+  .validator(z.string())
+  .handler(async function* ({ data: composeFilePath }) {
+    const dir = path.dirname(composeFilePath);
+    const signal = getRequest().signal;
+    for await (const line of exec("docker compose logs --no-color --tail=200 --follow", {
+      cwd: dir,
+      signal,
+    })) {
       yield line;
     }
   });
