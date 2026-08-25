@@ -18,10 +18,6 @@ import { cn } from "@/lib/utils";
 interface AppLogsActionProps {
   /** The app whose compose logs to follow. */
   app: App;
-  /** Disables the button while another action is in flight. */
-  disabled: boolean;
-  /** Notifies the parent so sibling actions can share a busy lock. */
-  onBusyChange: (busy: boolean) => void;
   /** Surfaces a follow-stream failure next to the action buttons. */
   onError: (message: string | undefined) => void;
 }
@@ -29,53 +25,23 @@ interface AppLogsActionProps {
 /**
  * Follows an app's compose logs in a sheet, aborting the tail when closed.
  */
-function AppLogsAction({ app, disabled, onBusyChange, onError }: AppLogsActionProps) {
+function AppLogsAction({ app, onError }: AppLogsActionProps) {
   const logsApp = useServerFn(logsAppFn);
   const stream = useStream(logsApp);
   const [pending, setPending] = React.useState(false);
   const [open, setOpen] = React.useState(false);
-  // Logs follow indefinitely, so closing the sheet has to abort the request
-  // to stop it — otherwise the server keeps tailing the process forever.
-  const abortController = React.useRef<AbortController | undefined>(undefined);
 
   const handleOpen = () => {
+    stream.run({ data: app.path });
     onError(undefined);
     setPending(true);
-    onBusyChange(true);
     setOpen(true);
-
-    // The client's streaming RPC reader doesn't reject or complete its
-    // iterator when the request is aborted mid-stream (it just logs
-    // "Stream processing error" and stops) — so `stream.run(...)` never
-    // settles after the sheet aborts it. Don't await it here; `pending`
-    // is cleared by handleOpenChange() instead, and this only handles
-    // the case where the stream ends/errors on its own.
-    const controller = new AbortController();
-    abortController.current = controller;
-    stream
-      .run({ data: app.path, signal: controller.signal })
-      .catch((err) => {
-        if (controller.signal.aborted) return;
-        onError(err instanceof Error ? err.message : "Failed to load logs");
-      })
-      .finally(() => {
-        // Only clear busy if this is still the active logs run — a stale,
-        // never-settling call from a prior close shouldn't clobber a newer
-        // run's state.
-        if (abortController.current === controller) {
-          setPending(false);
-          onBusyChange(false);
-        }
-      });
   };
 
   const handleOpenChange = (next: boolean) => {
     setOpen(next);
     if (!next) {
-      abortController.current?.abort();
-      abortController.current = undefined;
       setPending(false);
-      onBusyChange(false);
     }
   };
 
@@ -86,7 +52,6 @@ function AppLogsAction({ app, disabled, onBusyChange, onError }: AppLogsActionPr
         pendingLabel="Loading logs..."
         icon={<ScrollText />}
         pending={pending}
-        disabled={disabled}
         onClick={handleOpen}
       />
       <StreamSheet
@@ -195,7 +160,7 @@ function AppActions({ app }: { app: App }) {
             onClick={() => run("start")}
           />
         )}
-        <AppLogsAction app={app} disabled={busy} onBusyChange={setBusy} onError={setError} />
+        <AppLogsAction app={app} onError={setError} />
       </div>
       {error && <p className="text-xs text-destructive">{error}</p>}
       {sheetAction && (

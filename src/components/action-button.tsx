@@ -12,8 +12,8 @@ interface ActionButtonProps {
   icon: ReactNode;
   /** Whether this specific action is currently running. */
   pending: boolean;
-  /** Whether the button is disabled (any action in flight). */
-  disabled: boolean;
+  /** Whether the button is disabled (any action in flight). Defaults to false. */
+  disabled?: boolean;
   /** Starts the action. */
   onClick: () => void;
   /** Extra Tailwind classes forwarded to the button. */
@@ -28,7 +28,7 @@ export default function ActionButton({
   pendingLabel,
   icon,
   pending,
-  disabled,
+  disabled = false,
   onClick,
   className,
 }: ActionButtonProps) {
