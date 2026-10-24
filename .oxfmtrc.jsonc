@@ -1,0 +1,10 @@
+{
+  "$schema": "./node_modules/oxfmt/configuration_schema.json",
+  "ignorePatterns": ["*.gen.ts"],
+  "proseWrap": "always",
+  "sortImports": true,
+  "sortTailwindcss": {
+    "stylesheet": "./src/styles.css",
+    "functions": ["cn"],
+  },
+}
