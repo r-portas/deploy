@@ -1,5 +1,11 @@
-// Adapted from https://github.com/oxc-project/oxc-zed/tree/main/examples/both
 {
+  "context_servers": {
+    "shadcn": {
+      "command": "bunx",
+      "args": ["shadcn@latest", "mcp"]
+    }
+  },
+  // Adapted from https://github.com/oxc-project/oxc-zed/tree/main/examples/both
   "lsp": {
     "oxlint": {
       "initialization_options": {
