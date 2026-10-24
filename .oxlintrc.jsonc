@@ -8,8 +8,6 @@
   "rules": {
     // verbatimModuleSyntax is off (see tsconfig.json), so enforce `import type` here instead
     "typescript/consistent-type-imports": "error",
-    // Prefer undefined over null
-    "unicorn/no-null": "error",
     // Not needed for React 17+
     "react/react-in-jsx-scope": "off",
     // `_splat` is TanStack Router's fixed name for splat route params
