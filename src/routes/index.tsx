@@ -1,97 +1,84 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { LayoutDashboard } from "lucide-react";
 
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
-import { getDockerInfoFn, getStacksFn } from "@/lib/docker.functions";
+import { SystemSummary } from "@/components/system-summary";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@/components/ui/empty";
+import { getDashboardFn } from "@/lib/dashboard.functions";
+import { getDockerInfoFn } from "@/lib/docker.functions";
 
 export const Route = createFileRoute("/")({
   loader: async () => {
-    const [info, stacks] = await Promise.all([getDockerInfoFn(), getStacksFn()]);
-    return { info, stacks };
+    const [info, groups] = await Promise.all([getDockerInfoFn(), getDashboardFn()]);
+    return { info, groups };
   },
   component: RouteComponent,
 });
 
 function RouteComponent() {
-  const { info, stacks } = Route.useLoaderData();
-
-  const details = [
-    ["Server version", info.ServerVersion],
-    ["Operating system", info.OperatingSystem],
-    ["Architecture", `${info.OSType}/${info.Architecture}`],
-    ["Kernel", info.KernelVersion],
-    ["CPUs", info.NCPU],
-    ["Memory", `${(info.MemTotal / 1024 ** 3).toFixed(1)} GiB`],
-    ["Images", info.Images],
-  ] as const;
-
-  const containers = [
-    ["Running", info.ContainersRunning],
-    ["Paused", info.ContainersPaused],
-    ["Stopped", info.ContainersStopped],
-  ] as const;
+  const { info, groups } = Route.useLoaderData();
 
   return (
-    <div className="grid max-w-3xl gap-4 md:grid-cols-2">
-      <Card className="md:col-span-2">
-        <CardHeader>
-          <CardTitle>Stacks</CardTitle>
-          <CardDescription>{stacks.length} Compose projects</CardDescription>
-        </CardHeader>
-        <CardContent className="grid gap-4">
-          {stacks.map((stack) => (
-            <div key={stack.name}>
-              <h3 className="text-sm font-medium">
-                {stack.name}{" "}
-                <span className="font-normal text-muted-foreground">
-                  {stack.runningCount}/{stack.services.length} running
-                </span>
-              </h3>
-              <ul className="mt-2 grid gap-1 text-sm">
-                {stack.services.map((service) => (
-                  <li key={service.id} className="flex justify-between gap-4">
-                    <span>{service.name}</span>
-                    <span className="text-muted-foreground">
-                      {service.state} · {service.status}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            </div>
+    <div className="flex flex-col gap-4">
+      <SystemSummary info={info} />
+      {groups.length === 0 ? (
+        <Empty className="border">
+          <EmptyHeader>
+            <EmptyMedia variant="icon">
+              <LayoutDashboard />
+            </EmptyMedia>
+            <EmptyTitle>No services yet</EmptyTitle>
+            <EmptyDescription>
+              Add the <code>homepage.name</code> and <code>homepage.href</code> labels (optionally{" "}
+              <code>homepage.group</code> and <code>homepage.description</code>) to a container.
+            </EmptyDescription>
+          </EmptyHeader>
+        </Empty>
+      ) : (
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          {groups.map((group) => (
+            <Card key={group.name}>
+              <CardHeader>
+                <CardTitle>{group.name}</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ul className="grid gap-1">
+                  {group.services.map((service) => (
+                    <li key={service.href + service.name}>
+                      <a
+                        href={service.href}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="block rounded-md px-2 py-1.5 hover:bg-muted"
+                      >
+                        <span className="flex items-baseline justify-between gap-4">
+                          <span className="text-sm font-medium">{service.name}</span>
+                          <Badge
+                            variant={service.state === "running" ? "secondary" : "destructive"}
+                          >
+                            {service.state}
+                          </Badge>
+                        </span>
+                        <span className="block text-xs text-muted-foreground">
+                          {service.description ? `${service.description} · ` : ""}
+                          {service.status}
+                        </span>
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              </CardContent>
+            </Card>
           ))}
-        </CardContent>
-      </Card>
-      <Card>
-        <CardHeader>
-          <CardTitle>Docker Engine</CardTitle>
-          <CardDescription>{info.Name}</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-sm">
-            {details.map(([label, value]) => (
-              <div key={label} className="contents">
-                <dt className="text-muted-foreground">{label}</dt>
-                <dd className="text-right">{value}</dd>
-              </div>
-            ))}
-          </dl>
-        </CardContent>
-      </Card>
-      <Card>
-        <CardHeader>
-          <CardTitle>Containers</CardTitle>
-          <CardDescription>{info.Containers} total</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-sm">
-            {containers.map(([label, value]) => (
-              <div key={label} className="contents">
-                <dt className="text-muted-foreground">{label}</dt>
-                <dd className="text-right">{value}</dd>
-              </div>
-            ))}
-          </dl>
-        </CardContent>
-      </Card>
+        </div>
+      )}
     </div>
   );
 }
