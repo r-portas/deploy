@@ -4,6 +4,8 @@ export type MetricSample = {
   id: string;
   /** Container name without the leading slash. */
   name: string;
+  /** Docker network mode, e.g. `bridge` or `host`. */
+  networkMode: string;
   /** Unix epoch in milliseconds, as reported by Docker. */
   time: number;
   /** CPU use as a percentage of one core, so 200 means two cores fully busy. */
@@ -29,5 +31,6 @@ export type MetricEvent = MetricSample | MetricStopped | MetricIdle;
 export type ContainerSeries = {
   id: string;
   name: string;
+  networkMode: string;
   samples: MetricSample[];
 };

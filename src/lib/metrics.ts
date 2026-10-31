@@ -49,6 +49,21 @@ export function sumNetwork(stats: DockerStats): { rx: number; tx: number } {
 }
 
 /**
+ * Explains why Docker reports no per-container network stats for a network mode, or `undefined`
+ * if it does.
+ *
+ * @remarks
+ * `host` uses the host's interfaces, `none` has none, and `container:<id>` shares another
+ * container's namespace. In all three the `networks` stats are absent, so rates would read as 0.
+ */
+export function networkUnavailableReason(networkMode: string): string | undefined {
+  if (networkMode === "host") return "host networking";
+  if (networkMode === "none") return "no network";
+  if (networkMode.startsWith("container:")) return "shared network";
+  return undefined;
+}
+
+/**
  * Turns a cumulative counter into a per-second rate.
  *
  * @remarks
@@ -78,7 +93,10 @@ export function applyMetricEvent(
 
   const existing = state[event.id];
   const samples = [...(existing?.samples ?? []), event].slice(-MAX_SAMPLES);
-  return { ...state, [event.id]: { id: event.id, name: event.name, samples } };
+  return {
+    ...state,
+    [event.id]: { id: event.id, name: event.name, networkMode: event.networkMode, samples },
+  };
 }
 
 /**

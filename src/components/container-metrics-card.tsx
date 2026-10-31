@@ -7,7 +7,7 @@ import { useMemo } from "react";
 import type { ReactNode } from "react";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { formatBytes, MAX_SAMPLES } from "@/lib/metrics";
+import { formatBytes, MAX_SAMPLES, networkUnavailableReason } from "@/lib/metrics";
 import type { ContainerSeries } from "@/lib/metrics.types";
 
 const CHART_HEIGHT = 96;
@@ -27,6 +27,7 @@ const CPU_LINES: MetricLine[] = [{ name: "CPU", color: "var(--chart-1)", value: 
 const MEMORY_LINES: MetricLine[] = [
   { name: "Memory", color: "var(--chart-1)", value: (s) => s.memory / 1024 ** 2 },
 ];
+const NETWORK_LABEL = "Network (KiB/s)";
 const NETWORK_LINES: MetricLine[] = [
   { name: "RX", color: "var(--success)", value: (s) => s.rx / 1024 },
   // Negative so TX plots below the zero line, mirroring RX above it
@@ -89,6 +90,27 @@ function createDefinition(points: Point[], metrics: string[], colors: string[], 
   });
 }
 
+/** Caption plus content, shared by the charts and their placeholder so they line up. */
+function ChartFigure({
+  label,
+  summary,
+  children,
+}: {
+  label: string;
+  summary?: ReactNode;
+  children: ReactNode;
+}) {
+  return (
+    <figure className="grid gap-1">
+      <figcaption className="flex items-baseline justify-between text-xs text-muted-foreground">
+        <span>{label}</span>
+        <span>{summary}</span>
+      </figcaption>
+      {children}
+    </figure>
+  );
+}
+
 function MetricChart({
   name,
   samples,
@@ -121,11 +143,7 @@ function MetricChart({
   }, [samples, label, lines]);
 
   return (
-    <figure className="grid gap-1">
-      <figcaption className="flex items-baseline justify-between text-xs text-muted-foreground">
-        <span>{label}</span>
-        <span>{summary}</span>
-      </figcaption>
+    <ChartFigure label={label} summary={summary}>
       {/* Client only so the chart measures its real width on first paint */}
       <ClientOnly fallback={<div style={{ height: CHART_HEIGHT }} />}>
         <Chart
@@ -134,7 +152,24 @@ function MetricChart({
           ariaLabel={`${name} ${label} over the last two minutes`}
         />
       </ClientOnly>
-    </figure>
+    </ChartFigure>
+  );
+}
+
+/**
+ * Stands in for the network chart when Docker reports no per-container network stats, which would
+ * otherwise show as a misleading flat zero.
+ */
+function NetworkUnavailable({ reason }: { reason: string }) {
+  return (
+    <ChartFigure label={NETWORK_LABEL}>
+      <div
+        className="flex items-center justify-center text-xs text-muted-foreground"
+        style={{ height: CHART_HEIGHT }}
+      >
+        N/A ({reason})
+      </div>
+    </ChartFigure>
   );
 }
 
@@ -144,6 +179,7 @@ function MetricChart({
 export function ContainerMetricsCard({ series }: { series: ContainerSeries }) {
   const latest = series.samples.at(-1);
   if (!latest) return null;
+  const networkReason = networkUnavailableReason(series.networkMode);
 
   return (
     <Card>
@@ -169,19 +205,23 @@ export function ContainerMetricsCard({ series }: { series: ContainerSeries }) {
               : formatBytes(latest.memory)
           }
         />
-        <MetricChart
-          name={series.name}
-          samples={series.samples}
-          label="Network (KiB/s)"
-          lines={NETWORK_LINES}
-          summary={
-            // The colored labels double as the legend for the two lines
-            <>
-              <span style={{ color: "var(--success)" }}>↓ RX</span> {formatBytes(latest.rx)}/s{" "}
-              <span style={{ color: "var(--warning)" }}>↑ TX</span> {formatBytes(latest.tx)}/s
-            </>
-          }
-        />
+        {networkReason ? (
+          <NetworkUnavailable reason={networkReason} />
+        ) : (
+          <MetricChart
+            name={series.name}
+            samples={series.samples}
+            label={NETWORK_LABEL}
+            lines={NETWORK_LINES}
+            summary={
+              // The colored labels double as the legend for the two lines
+              <>
+                <span style={{ color: "var(--success)" }}>↓ RX</span> {formatBytes(latest.rx)}/s{" "}
+                <span style={{ color: "var(--warning)" }}>↑ TX</span> {formatBytes(latest.tx)}/s
+              </>
+            }
+          />
+        )}
       </CardContent>
     </Card>
   );

@@ -6,6 +6,7 @@ import {
   computeMemoryBytes,
   formatBytes,
   MAX_SAMPLES,
+  networkUnavailableReason,
   sumNetwork,
   toRate,
 } from "./metrics";
@@ -17,7 +18,18 @@ function stats(overrides: Partial<DockerStats> = {}): DockerStats {
 }
 
 function sample(id: string, time: number): MetricSample {
-  return { type: "sample", id, name: id, time, cpu: 0, memory: 0, memoryLimit: 0, rx: 0, tx: 0 };
+  return {
+    type: "sample",
+    id,
+    name: id,
+    networkMode: "bridge",
+    time,
+    cpu: 0,
+    memory: 0,
+    memoryLimit: 0,
+    rx: 0,
+    tx: 0,
+  };
 }
 
 describe("computeCpuPercent", () => {
@@ -74,6 +86,20 @@ describe("sumNetwork", () => {
 
   test("is zero when there are no networks", () => {
     expect(sumNetwork(stats())).toEqual({ rx: 0, tx: 0 });
+  });
+});
+
+describe("networkUnavailableReason", () => {
+  test("flags modes without their own network stats", () => {
+    expect(networkUnavailableReason("host")).toBe("host networking");
+    expect(networkUnavailableReason("none")).toBe("no network");
+    expect(networkUnavailableReason("container:abc123")).toBe("shared network");
+  });
+
+  test("returns undefined for modes that report stats", () => {
+    for (const mode of ["default", "bridge", "myproject_default"]) {
+      expect(networkUnavailableReason(mode)).toBeUndefined();
+    }
   });
 });
 
