@@ -1,12 +1,17 @@
 import { barX, colorLegend, defineChart, stack } from "@tanstack/charts";
 import { colorLegendItems } from "@tanstack/charts/legend";
-import { Chart } from "@tanstack/charts/react";
+import { motion } from "@tanstack/charts/motion";
+import { Chart } from "@tanstack/charts/react/core";
 import { scaleBand } from "@tanstack/charts/scales/band";
 import { scaleLinear } from "@tanstack/charts/scales/linear";
-import { tooltip } from "@tanstack/charts/tooltip";
+import { ClientOnly } from "@tanstack/react-router";
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import type { DockerInfo } from "@/lib/docker.schemas";
+
+const CHART_HEIGHT = 88;
+
+const renderer = motion();
 
 /**
  * A full width card summarising the Docker host: a stacked bar of container states above key host details.
@@ -45,7 +50,7 @@ export function SystemSummary({ info }: { info: DockerInfo }) {
     },
     color: {
       domain: labels,
-      range: ["var(--primary)", "var(--muted-foreground)", "var(--destructive)"],
+      range: ["var(--success)", "var(--warning)", "var(--muted-foreground)"],
       legend: colorLegend({
         placement: "bottom",
         items: colorLegendItems({ justify: "center", gap: 20 }),
@@ -53,11 +58,6 @@ export function SystemSummary({ info }: { info: DockerInfo }) {
     },
     // The focus ring would mark the bar's end point, which means nothing on a stacked bar
     focusRing: false,
-    tooltip: {
-      use: tooltip,
-      anchor: "pointer",
-      format: (point) => `${point.datum.state}: ${point.datum.count}`,
-    },
   });
 
   const details = [
@@ -79,12 +79,15 @@ export function SystemSummary({ info }: { info: DockerInfo }) {
         </CardDescription>
       </CardHeader>
       <CardContent className="grid gap-6">
-        <Chart
-          definition={definition}
-          height={88}
-          initialWidth={640}
-          ariaLabel={`Containers by state: ${rows.map((row) => `${row.count} ${row.state}`).join(", ")}`}
-        />
+        {/* Client only so the chart measures its real width on first paint; the fallback reserves its height */}
+        <ClientOnly fallback={<div style={{ height: CHART_HEIGHT }} />}>
+          <Chart
+            definition={definition}
+            renderer={renderer}
+            height={CHART_HEIGHT}
+            ariaLabel={`Containers by state: ${rows.map((row) => `${row.count} ${row.state}`).join(", ")}`}
+          />
+        </ClientOnly>
         <dl className="grid grid-cols-[auto_1fr] gap-x-6 gap-y-2 text-sm sm:grid-cols-[auto_1fr_auto_1fr]">
           {details.map(([label, value]) => (
             <div key={label} className="contents">
