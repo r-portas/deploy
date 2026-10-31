@@ -9,6 +9,9 @@ summary of the host plus a launcher for your services, grouped by category.
 - **Service dashboard**: links to your services, grouped by category, with their current state.
   Services opt in with `homepage.*` container labels, the same ones
   [gethomepage.dev](https://gethomepage.dev) uses.
+- **Container metrics**: a `/metrics` page with live CPU, memory and network line charts, one card
+  per running container. Samples stream from the Docker stats API through a server function and the
+  last two minutes are kept in the browser.
 - **Compose stacks**: containers are grouped into stacks using the labels Compose puts on them.
   Stacks are available through the `getStacksFn` server function, but are not shown in the UI yet.
 
@@ -75,6 +78,7 @@ The dev server also needs access to `/var/run/docker.sock`.
 
 - `src/routes` holds the TanStack Router file routes.
 - `src/components` holds app components, with shadcn/ui primitives in `src/components/ui`.
+- `src/hooks` holds React hooks.
 - `src/lib` holds library code grouped by domain (`docker`, `dashboard`) using suffixes such as
   `.server.ts`, `.functions.ts`, `.schemas.ts` and `.types.ts`. See [AGENTS.md](./AGENTS.md) for the
   conventions.
