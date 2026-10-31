@@ -10,8 +10,10 @@ summary of the host plus a launcher for your services, grouped by category.
   Services opt in with `homepage.*` container labels, the same ones
   [gethomepage.dev](https://gethomepage.dev) uses.
 - **Container metrics**: a `/metrics` page with live CPU, memory and network line charts, one card
-  per running container. Samples stream from the Docker stats API through a server function and the
-  last two minutes are kept in the browser.
+  per running container. The network chart shows N/A for containers on host networking, no network
+  or another container's network, since Docker reports no network stats for them. Samples stream
+  from the Docker stats API through a server function and the last two minutes are kept in the
+  browser.
 - **Compose stacks**: containers are grouped into stacks using the labels Compose puts on them.
   Stacks are available through the `getStacksFn` server function, but are not shown in the UI yet.
 

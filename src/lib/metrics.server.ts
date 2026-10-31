@@ -42,6 +42,7 @@ async function* streamContainerMetrics(
       type: "sample",
       id: container.Id,
       name,
+      networkMode: container.HostConfig.NetworkMode,
       time,
       cpu: computeCpuPercent(stats),
       memory: computeMemoryBytes(stats),

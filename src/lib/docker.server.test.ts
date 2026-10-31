@@ -13,6 +13,7 @@ function container(overrides: Partial<DockerContainer>): DockerContainer {
     State: "running",
     Status: "Up 1 hour",
     Labels: {},
+    HostConfig: { NetworkMode: "default" },
     ...overrides,
   };
 }

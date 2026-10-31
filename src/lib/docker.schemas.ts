@@ -34,6 +34,10 @@ export const dockerContainerSchema = z.object({
   State: z.string(),
   Status: z.string(),
   Labels: z.record(z.string(), z.string()).nullable(),
+  HostConfig: z.object({
+    // Free-form: `default`, `bridge`, `host`, `none`, `container:<id>` or a user-defined network name
+    NetworkMode: z.string(),
+  }),
 });
 
 export type DockerContainer = z.infer<typeof dockerContainerSchema>;
