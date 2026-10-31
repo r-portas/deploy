@@ -93,9 +93,11 @@ export function streamMetrics(signal: AbortSignal): ReadableStream<MetricEvent> 
           if (!controller.signal.aborted)
             console.error(`Metrics for ${container.Id} failed`, error);
         } finally {
-          // Don't clobber a newer stream if the container was restarted in the meantime
-          if (active.get(container.Id) === controller) active.delete(container.Id);
-          push({ type: "stopped", id: container.Id });
+          // A newer pump owns the id if the container was restarted in the meantime; its series must survive
+          if (active.get(container.Id) === controller) {
+            active.delete(container.Id);
+            push({ type: "stopped", id: container.Id });
+          }
         }
       };
 
@@ -114,20 +116,27 @@ export function streamMetrics(signal: AbortSignal): ReadableStream<MetricEvent> 
         }
       };
 
-      signal.addEventListener(
-        "abort",
-        () => {
-          if (closed) return;
-          shutdown();
-          stream.close();
-        },
-        { once: true },
-      );
+      const abort = () => {
+        if (closed) return;
+        shutdown();
+        stream.close();
+      };
+      // The abort event never fires for a signal that is already aborted
+      if (signal.aborted) return abort();
+      signal.addEventListener("abort", abort, { once: true });
+
+      try {
+        await reconcile();
+      } catch (error) {
+        // A failed start doesn't call `cancel`, so clean up here or the pumps would leak
+        shutdown();
+        throw error;
+      }
+      // The signal may have aborted while listing, which already shut everything down
+      if (closed) return;
       timer = setInterval(() => {
         reconcile().catch((error) => console.error("Metrics reconcile failed", error));
       }, RECONCILE_MS);
-
-      await reconcile();
       // The first sample takes a couple of seconds, so say up front if there won't be any
       if (active.size === 0) push({ type: "idle" });
     },
