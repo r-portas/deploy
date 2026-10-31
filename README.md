@@ -42,6 +42,14 @@ services:
       homepage.description: Team notes # optional
 ```
 
+`homepage.href` may start with `{{HOMEPAGE_VAR_URL}}`, which the browser replaces with the protocol
+and hostname (no port) it opened the dashboard from. This is useful for services published on
+another port of the same host:
+
+```yaml
+homepage.href: "{{HOMEPAGE_VAR_URL}}:61208"
+```
+
 ## Dev Quick Start
 
 ```sh

@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { ClientOnly, createFileRoute } from "@tanstack/react-router";
 import { LayoutDashboard } from "lucide-react";
 
 import { SystemSummary } from "@/components/system-summary";
@@ -11,7 +11,9 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@/components/ui/empty";
+import { ORIGIN_PLACEHOLDER } from "@/lib/dashboard";
 import { getDashboardFn } from "@/lib/dashboard.functions";
+import type { DashboardService } from "@/lib/dashboard.types";
 import { getDockerInfoFn } from "@/lib/docker.functions";
 
 export const Route = createFileRoute("/")({
@@ -52,25 +54,9 @@ function RouteComponent() {
                 <ul className="grid gap-1">
                   {group.services.map((service) => (
                     <li key={service.href + service.name}>
-                      <a
-                        href={service.href}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="block rounded-md px-2 py-1.5 hover:bg-muted"
-                      >
-                        <span className="flex items-baseline justify-between gap-4">
-                          <span className="text-sm font-medium">{service.name}</span>
-                          <Badge
-                            variant={service.state === "running" ? "secondary" : "destructive"}
-                          >
-                            {service.state}
-                          </Badge>
-                        </span>
-                        <span className="block text-xs text-muted-foreground">
-                          {service.description ? `${service.description} · ` : ""}
-                          {service.status}
-                        </span>
-                      </a>
+                      <ClientOnly>
+                        <ServiceLink service={service} />
+                      </ClientOnly>
                     </li>
                   ))}
                 </ul>
@@ -80,5 +66,34 @@ function RouteComponent() {
         </div>
       )}
     </div>
+  );
+}
+
+// Protocol and hostname without the port, so `{{HOMEPAGE_VAR_URL}}:8080` can supply its own port.
+function resolveHref(href: string) {
+  const { protocol, hostname } = window.location;
+  return href.replaceAll(ORIGIN_PLACEHOLDER, `${protocol}//${hostname}`);
+}
+
+// Rendered client-only because the href can depend on `window.location`.
+function ServiceLink({ service }: { service: DashboardService }) {
+  return (
+    <a
+      href={resolveHref(service.href)}
+      target="_blank"
+      rel="noreferrer"
+      className="block rounded-md px-2 py-1.5 hover:bg-muted"
+    >
+      <span className="flex items-baseline justify-between gap-4">
+        <span className="text-sm font-medium">{service.name}</span>
+        <Badge variant={service.state === "running" ? "secondary" : "destructive"}>
+          {service.state}
+        </Badge>
+      </span>
+      <span className="block text-xs text-muted-foreground">
+        {service.description ? `${service.description} · ` : ""}
+        {service.status}
+      </span>
+    </a>
   );
 }

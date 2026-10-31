@@ -1,6 +1,6 @@
 export type DashboardService = {
   name: string;
-  /** Absolute http(s) URL the service is reachable at. */
+  /** Absolute http(s) URL the service is reachable at, optionally containing `{{HOMEPAGE_VAR_URL}}`. */
   href: string;
   description?: string | undefined;
   /** Engine state, e.g. `running`, `exited`. */

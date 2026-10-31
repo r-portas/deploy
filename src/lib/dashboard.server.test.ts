@@ -96,4 +96,11 @@ describe("groupDashboardServices", () => {
       ]),
     ).toEqual([]);
   });
+
+  test("keeps hrefs that use the origin placeholder", () => {
+    const [group] = groupDashboardServices([
+      labelled({ "homepage.name": "Glances", "homepage.href": "{{HOMEPAGE_VAR_URL}}:61208" }),
+    ]);
+    expect(group?.services[0]?.href).toBe("{{HOMEPAGE_VAR_URL}}:61208");
+  });
 });
