@@ -9,25 +9,80 @@ const SERVICE_LABEL = "com.docker.compose.service";
 
 const unix = "/var/run/docker.sock";
 
-async function fetchDockerJson(path: string): Promise<unknown> {
+async function fetchDockerJson<T>(path: string, schema: z.ZodType<T>): Promise<T> {
   const response = await fetch("http://localhost" + path, { unix });
   if (!response.ok) {
     throw new Error(`Fetch '${path}' failed`);
   }
-  return response.json();
+  return schema.parse(await response.json());
+}
+
+/**
+ * Parses a newline-delimited JSON (NDJSON) byte stream into validated values.
+ *
+ * @param body - A response body whose lines are each one complete JSON document.
+ * @param schema - Validates every line; a line that fails validation throws.
+ *
+ * @remarks
+ * Network chunks don't line up with line boundaries, so partial lines are buffered until their
+ * newline arrives. Blank lines are skipped, and a final line without a trailing newline is still parsed.
+ *
+ * @yields Each line parsed and validated against `schema`.
+ */
+export async function* parseNdjson<T>(
+  body: ReadableStream<Uint8Array>,
+  schema: z.ZodType<T>,
+): AsyncGenerator<T> {
+  // `stream: true` below keeps multibyte characters split across chunks intact
+  const decoder = new TextDecoder();
+  let buffer = "";
+
+  const parseLine = (line: string) => schema.parse(JSON.parse(line));
+
+  for await (const chunk of body) {
+    buffer += decoder.decode(chunk, { stream: true });
+    const lines = buffer.split("\n");
+    // The last piece has no newline yet, so it may be incomplete
+    buffer = lines.pop() ?? "";
+    for (const line of lines) {
+      if (line.trim()) yield parseLine(line);
+    }
+  }
+
+  buffer += decoder.decode();
+  if (buffer.trim()) yield parseLine(buffer);
+}
+
+/**
+ * Opens a streaming Docker endpoint that responds with NDJSON, e.g. `/containers/{id}/stats`.
+ *
+ * @param path - Docker API path, including any query string.
+ * @param schema - Validates each streamed value.
+ * @param signal - Aborting it closes the connection to the Docker daemon.
+ *
+ * @yields Each streamed value, validated against `schema`.
+ */
+export async function* streamDockerJson<T>(
+  path: string,
+  schema: z.ZodType<T>,
+  signal: AbortSignal,
+): AsyncGenerator<T> {
+  const response = await fetch("http://localhost" + path, { unix, signal });
+  if (!response.ok || !response.body) {
+    throw new Error(`Stream '${path}' failed`);
+  }
+  yield* parseNdjson(response.body, schema);
 }
 
 export async function info() {
-  const resp = await fetchDockerJson("/info");
-  return dockerInfoSchema.parse(resp);
+  return fetchDockerJson("/info", dockerInfoSchema);
 }
 
 /**
  * Lists all containers, including stopped ones so fully stopped stacks still show up.
  */
 export async function listContainers() {
-  const resp = await fetchDockerJson("/containers/json?all=true");
-  return z.array(dockerContainerSchema).parse(resp);
+  return fetchDockerJson("/containers/json?all=true", z.array(dockerContainerSchema));
 }
 
 /**
