@@ -1,10 +1,10 @@
 import type { LinkProps } from "@tanstack/react-router";
+import { cn } from "cn";
 import type { LucideIcon } from "lucide-react";
 import type { ComponentProps, ReactNode } from "react";
 
 import { ButtonLink } from "@/components/ui/button-link";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { cn } from "@/lib/utils";
 
 export interface SidebarItem extends LinkProps {
   icon: LucideIcon;

@@ -1,9 +1,9 @@
 import { createLink, type LinkComponent } from "@tanstack/react-router";
 import type { VariantProps } from "class-variance-authority";
+import { cn } from "cn";
 import type * as React from "react";
 
 import { buttonVariants } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
 
 interface ButtonLinkPrimitiveProps
   extends React.AnchorHTMLAttributes<HTMLAnchorElement>, VariantProps<typeof buttonVariants> {}
