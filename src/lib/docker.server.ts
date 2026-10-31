@@ -23,11 +23,18 @@ export async function info() {
 }
 
 /**
- * Lists Compose stacks, including stopped containers so fully stopped stacks still show up.
+ * Lists all containers, including stopped ones so fully stopped stacks still show up.
+ */
+export async function listContainers() {
+  const resp = await fetchDockerJson("/containers/json?all=true");
+  return z.array(dockerContainerSchema).parse(resp);
+}
+
+/**
+ * Lists Compose stacks.
  */
 export async function listStacks() {
-  const resp = await fetchDockerJson("/containers/json?all=true");
-  return groupStacks(z.array(dockerContainerSchema).parse(resp));
+  return groupStacks(await listContainers());
 }
 
 /**

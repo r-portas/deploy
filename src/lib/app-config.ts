@@ -1,4 +1,4 @@
-import { Blocks, Home } from "lucide-react";
+import { Blocks, LayoutDashboard } from "lucide-react";
 
 import type { SidebarItem } from "@/components/ui/sidebar";
 
@@ -16,5 +16,5 @@ export const APP_ICON = Blocks;
  * The items shown in the sidebar, each with an icon and a title.
  */
 export const SIDEBAR_ITEMS: SidebarItem[] = [
-  { icon: Home, title: "Home", to: "/", activeOptions: { exact: true } },
+  { icon: LayoutDashboard, title: "Dashboard", to: "/", activeOptions: { exact: true } },
 ];
