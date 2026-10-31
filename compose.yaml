@@ -2,7 +2,7 @@ services:
   app:
     build: .
     ports:
-      - "3000:3000"
+      - "${PORT:-3000}:3000"
     # the mounted socket is root:root 660, which the image's default `bun` user can't open
     user: root
     volumes:
