@@ -1,5 +1,5 @@
 {
-  "name": "tss",
+  "name": "deploy",
   "type": "module",
   "scripts": {
     "dev": "bun --bun vite dev",

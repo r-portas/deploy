@@ -1,7 +1,7 @@
 # Deploy
 
-A small self-hosted dashboard for a single Docker host. It reads the local Docker daemon and shows
-a summary of the host plus a launcher for your services, grouped by category.
+A small self-hosted dashboard for a single Docker host. It reads the local Docker daemon and shows a
+summary of the host plus a launcher for your services, grouped by category.
 
 ## Features
 
@@ -41,15 +41,6 @@ services:
       homepage.group: Tools # optional, defaults to "Other"
       homepage.description: Team notes # optional
 ```
-
-## Docker access
-
-The app talks to Docker over `/var/run/docker.sock`, which `compose.yaml` mounts into the
-container. The socket is root-owned, so the container runs as `root`.
-
-> [!WARNING]
-> Access to the Docker socket is effectively root access to the host. Only run this on a host you
-> trust, and don't expose the app to untrusted networks. It has no authentication.
 
 ## Dev Quick Start
 
