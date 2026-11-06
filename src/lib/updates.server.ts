@@ -32,18 +32,17 @@ async function* streamLines(stream: ReadableStream<Uint8Array>): AsyncGenerator<
  * @remarks
  * Only resolves to the host when this app is deployed `privileged` with `pid: host` (see
  * compose.yaml) — without host PID visibility, target `1` is this container's own init instead.
+ * Uses short flags because the release image is `oven/bun:1-alpine`, whose `nsenter` is BusyBox's
+ * applet, not util-linux's — it doesn't understand `--target`/`--mount`/etc.
  */
 function runOnHost(command: string, options: { signal?: AbortSignal } = {}) {
-  return Bun.spawn(
-    ["nsenter", "--target", "1", "--mount", "--uts", "--ipc", "--net", "--", "sh", "-c", command],
-    {
-      stdout: "pipe",
-      // Stops apt from prompting (e.g. on config file conflicts), which would otherwise hang forever
-      // since there's no terminal attached to answer it
-      env: { ...process.env, DEBIAN_FRONTEND: "noninteractive" },
-      ...options,
-    },
-  );
+  return Bun.spawn(["nsenter", "-t", "1", "-m", "-u", "-i", "-n", "--", "sh", "-c", command], {
+    stdout: "pipe",
+    // Stops apt from prompting (e.g. on config file conflicts), which would otherwise hang forever
+    // since there's no terminal attached to answer it
+    env: { ...process.env, DEBIAN_FRONTEND: "noninteractive" },
+    ...options,
+  });
 }
 
 /**
