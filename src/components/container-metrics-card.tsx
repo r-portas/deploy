@@ -37,7 +37,7 @@ const NETWORK_LINES: MetricLine[] = [
 /**
  * Builds a line chart definition. X is seconds before the latest sample, so the window scrolls left over a fixed span.
  */
-function createDefinition(points: Point[], metrics: string[], colors: string[], label: string) {
+function createDefinition(points: Point[], metrics: string[], colors: string[]) {
   return defineChart({
     marks: [
       // Decorative so the line keeps sole ownership of focus and tooltips
@@ -79,7 +79,8 @@ function createDefinition(points: Point[], metrics: string[], colors: string[], 
         scale: scaleLinear,
         nice: true,
         axis: {
-          label,
+          // The label is already shown in the figcaption above the chart; repeating it here as a
+          // rotated axis title crowded the tick labels against the plotted data in a narrow card.
           // Absolute so TX, plotted below zero, still reads as a positive rate
           ticks: { count: 3, format: (value) => String(Math.abs(Number(value))) },
         },
@@ -138,9 +139,8 @@ function MetricChart({
       points,
       lines.map((line) => line.name),
       lines.map((line) => line.color),
-      label,
     );
-  }, [samples, label, lines]);
+  }, [samples, lines]);
 
   return (
     <ChartFigure label={label} summary={summary}>
