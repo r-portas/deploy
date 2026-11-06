@@ -1,4 +1,4 @@
-import { Activity, Blocks, LayoutDashboard } from "lucide-react";
+import { Activity, Blocks, LayoutDashboard, PackageCheck } from "lucide-react";
 
 import type { SidebarItem } from "@/components/ui/sidebar";
 
@@ -18,4 +18,5 @@ export const APP_ICON = Blocks;
 export const SIDEBAR_ITEMS: SidebarItem[] = [
   { icon: LayoutDashboard, title: "Dashboard", to: "/", activeOptions: { exact: true } },
   { icon: Activity, title: "Metrics", to: "/metrics" },
+  { icon: PackageCheck, title: "Updates", to: "/updates" },
 ];
