@@ -38,11 +38,35 @@ async function* streamLines(stream: ReadableStream<Uint8Array>): AsyncGenerator<
 function runOnHost(command: string, options: { signal?: AbortSignal } = {}) {
   return Bun.spawn(["nsenter", "-t", "1", "-m", "-u", "-i", "-n", "--", "sh", "-c", command], {
     stdout: "pipe",
+    stderr: "pipe",
     // Stops apt from prompting (e.g. on config file conflicts), which would otherwise hang forever
     // since there's no terminal attached to answer it
     env: { ...process.env, DEBIAN_FRONTEND: "noninteractive" },
     ...options,
   });
+}
+
+/**
+ * Runs a one-shot command and returns its stdout.
+ *
+ * @throws If the command exits non-zero, with its stdout and stderr included (e.g. a missing
+ * binary), so a broken environment surfaces as an error instead of silently looking like there's
+ * nothing to do.
+ */
+async function runChecked(proc: {
+  stdout: ReadableStream<Uint8Array>;
+  stderr: ReadableStream<Uint8Array>;
+  exited: Promise<number>;
+}): Promise<string> {
+  const [stdout, stderr, exitCode] = await Promise.all([
+    new Response(proc.stdout).text(),
+    new Response(proc.stderr).text(),
+    proc.exited,
+  ]);
+  if (exitCode !== 0) {
+    throw new Error(`Command failed (exit ${exitCode}): ${(stdout + stderr).trim()}`);
+  }
+  return stdout;
 }
 
 /**
@@ -80,15 +104,16 @@ export function mapBrewFormulae(formulae: BrewFormula[]): PackageUpdate[] {
 export async function listUpdates(): Promise<PackageUpdate[]> {
   switch (process.platform) {
     case "darwin": {
-      await Bun.spawn(["brew", "update"], { stdout: "pipe" }).exited;
-      const proc = Bun.spawn(["brew", "outdated", "--json=v2"], { stdout: "pipe" });
-      const output = await new Response(proc.stdout).text();
+      await runChecked(Bun.spawn(["brew", "update"], { stdout: "pipe", stderr: "pipe" }));
+      const output = await runChecked(
+        Bun.spawn(["brew", "outdated", "--json=v2"], { stdout: "pipe", stderr: "pipe" }),
+      );
       return mapBrewFormulae(brewOutdatedSchema.parse(JSON.parse(output)).formulae);
     }
     case "linux": {
-      await runOnHost("apt-get update").exited;
-      const proc = runOnHost("apt list --upgradable");
-      return parseAptUpgradable(await new Response(proc.stdout).text());
+      await runChecked(runOnHost("apt-get update"));
+      const output = await runChecked(runOnHost("apt list --upgradable"));
+      return parseAptUpgradable(output);
     }
     default:
       throw new Error(`Unsupported platform for software updates: ${process.platform}`);
