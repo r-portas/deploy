@@ -5,6 +5,10 @@ services:
       - "${PORT:-3000}:3000"
     # the mounted socket is root:root 660, which the image's default `bun` user can't open
     user: root
+    # privileged + host PID namespace let the Software Updates page `nsenter` into the host to run
+    # apt, since package updates have to land on the host, not in this container
+    privileged: true
+    pid: host
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
     restart: unless-stopped
